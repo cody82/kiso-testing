@@ -176,6 +176,19 @@ def get_logging_options() -> LogOptions:
     help="allow the user to execute a subset of tests based on branch levels",
 )
 @click.option(
+    "--step-report",
+    is_flag=True,
+    default=False,
+    help="generate the step report",
+)
+@click.option(
+    "--step-report-output",
+    required=False,
+    default="step_report.html",
+    type=click.Path(writable=True),
+    help="file path for the output step report",
+)
+@click.option(
     "--failfast",
     is_flag=True,
     help="stop the test run on the first error or failure",
@@ -190,6 +203,8 @@ def main(
     report_type: str = "text",
     variant: Optional[tuple] = None,
     branch_level: Optional[tuple] = None,
+    step_report: bool = False,
+    step_report_output: PathType = "step_report.html",
     pattern: Optional[str] = None,
     failfast: bool = False,
 ):
@@ -204,6 +219,8 @@ def main(
     :param report_type: if "test", the standard report, if "junit", a junit report is generated
     :param variant: allow the user to execute a subset of tests based on variants
     :param branch_level: allow the user to execute a subset of tests based on branch levels
+    :param step_report: generate the step report
+    :param step_report_output: file path for the output step report
     :param pattern: overwrite the pattern from the YAML file for easier test development
     :param failfast: stop the test run on the first error or failure
     """
@@ -219,7 +236,14 @@ def main(
         ConfigRegistry.register_aux_con(cfg_dict)
 
         exit_code = test_execution.execute(
-            cfg_dict, report_type, variant, branch_level, pattern, failfast
+            cfg_dict,
+            report_type,
+            variant,
+            branch_level,
+            step_report,
+            step_report_output,
+            pattern,
+            failfast
         )
         ConfigRegistry.delete_aux_con()
         for handler in logging.getLogger().handlers:
