@@ -23,15 +23,6 @@ def test_case():
     return tc
 
 
-# def test_assert_step_report_header_error(test_case, caplog):
-#     test_case.assertTrue = assert_step_report.assert_decorator(test_case.assertTrue)
-
-#     with caplog.at_level(logging.ERROR):
-#         test_case.assertTrue(True)
-
-#     assert "'TestCase' object has no attribute 'step_report_header'" in caplog.text
-
-
 def test_assert_step_report_single_input(mocker, test_case):
     step_result = mocker.patch(
         "pykiso.test_coordinator.assert_step_report.assert_step_report._add_step"
