@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2010-2021 Robert Bosch GmbH
+# Copyright (c) 2010-2022 Robert Bosch GmbH
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
 # http://www.eclipse.org/legal/epl-2.0.
@@ -160,7 +160,7 @@ def _prepare_report(test_class, test_name: str) -> None:
     # Create the testClass
     if not ALL_STEP_REPORT.get(test_class_name):
         ALL_STEP_REPORT[test_class_name] = OrderedDict()
-        # Add test succeed flag 
+        # Add test succeed flag
         ALL_STEP_REPORT[test_class_name]["succeed"] = True
         # Add header (mutable object -> dictionary fed during test)
         ALL_STEP_REPORT[test_class_name]["header"] = test_class.step_report_header

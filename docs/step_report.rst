@@ -31,7 +31,7 @@ Usage Examples
         # assert fail but continue on error
         # test is set to failed if assertion does not succeed
         self.step_report_continue_on_error = True
-        self.assertTrue(!device_on, msg="Some check")
+        self.assertTrue(not device_on, msg="Some check")
 
         # assert with custom message
         # assert msg overwritten when step_report_message not null
