@@ -340,11 +340,11 @@ def generate_step_report(
         )
     else:
         # Banner test, TestInfo missing
-        succeed_tests = []
+        succeeded_tests = []
         failed_test = []
 
     # Update info for each test
-    for test_case in (succeed_tests + failed_test):
+    for test_case in (succeeded_tests + failed_test):
         if isinstance(test_case, TestInfo):
             # Case of success
             test_info = test_case
