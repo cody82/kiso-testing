@@ -185,7 +185,7 @@ def enable_step_report(all_tests_to_run: unittest.suite.TestSuite) -> None:
 
         # Decorate All assert method
         assert_method_list = [
-            method for method in dir(tc) if method.startswith("assert") is True
+            method for method in dir(tc) if method.startswith("assert")
         ]
         for method_name in assert_method_list:
             # Get method from name

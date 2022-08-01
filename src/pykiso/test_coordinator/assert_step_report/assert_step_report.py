@@ -62,7 +62,7 @@ def _get_variable_name(f_back: types.FrameType, assert_name: str) -> str:
     According to unittest.TestCase, it is always placed first.
     That function read the source code as a text to find it.
 
-    :param f_back: frame callaing the assert method
+    :param f_back: frame calling the assert method
     :param: assert_name: current assert method name
 
     return: variable name
@@ -190,7 +190,7 @@ def _add_step(
     test_name: str,
     message: str,
     var_name: str,
-    expected: any,
+    expected: typing.Any,
     received: any,
 ):
     global ALL_STEP_REPORT, REPORT_KEYS
@@ -212,8 +212,8 @@ def assert_decorator(func):
             - setUp : list of assert
             - test_run: list of assert
 
-    ::Note: header is base on the variable step_report_header and
-        description based on test_run docstring
+    .. note:: header is based on the variable ``step_report_header`` and
+        description is based on the docstring of the test_run method
 
     .. code:: python
 
@@ -252,7 +252,7 @@ def assert_decorator(func):
                 arguments = signature.bind(*args, **kwargs).arguments
                 test_name = test_class.step_report_current_table or test_name
 
-                # 1. Gether message, var_name, expected, received
+                # 1. Gather message, var_name, expected, received
                 # 1.1 Get message. default value: ""
 
                 if test_class.step_report_message:
@@ -334,7 +334,7 @@ def generate_step_report(
 
     if isinstance(test_result, XmlTestResult):
         # separate successes and fails
-        succeed_tests = test_result.successes + test_result.expectedFailures
+        succeeded_tests = test_result.successes + test_result.expectedFailures
         failed_test = (
             test_result.failures + test_result.errors + test_result.unexpectedSuccesses
         )
@@ -344,8 +344,7 @@ def generate_step_report(
         failed_test = []
 
     # Update info for each test
-    for tests in [succeed_tests, failed_test]:
-        for test_case in tests:
+    for test_case in (succeed_tests + failed_test):
             if isinstance(test_case, TestInfo):
                 # Case of success
                 test_info = test_case
