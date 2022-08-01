@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Union
 
 import jinja2
+import typing
 
 from pykiso.test_coordinator.test_result import BannerTestResult
 from pykiso.test_coordinator.test_xml_result import TestInfo, XmlTestResult
