@@ -14,6 +14,7 @@ It follows the following structure:
   - variable name of the data_in
   - expected value
   - message
+- the report is presented as an HTML page
 
 Usage Examples
 ~~~~~~~~~~~~~~
