@@ -345,28 +345,28 @@ def generate_step_report(
 
     # Update info for each test
     for test_case in (succeed_tests + failed_test):
-            if isinstance(test_case, TestInfo):
-                # Case of success
-                test_info = test_case
-            elif isinstance(test_case, tuple) and isinstance(test_case[0], TestInfo):
-                # Case of non success
-                test_info = test_case[0]
-            else:
-                log.debug("Junit need to be activated for time information")
-                continue
-            class_name = test_info.test_name.split(".")[-1]
+        if isinstance(test_case, TestInfo):
+            # Case of success
+            test_info = test_case
+        elif isinstance(test_case, tuple) and isinstance(test_case[0], TestInfo):
+            # Case of non success
+            test_info = test_case[0]
+        else:
+            log.debug("Junit need to be activated for time information")
+            continue
+        class_name = test_info.test_name.split(".")[-1]
 
-            # Update test_case
-            if class_name in ALL_STEP_REPORT:
-                ALL_STEP_REPORT[class_name]["time_result"][
-                    "Start Time"
-                ] = _parse_timestamp(test_info.test_result.start_time)
-                ALL_STEP_REPORT[class_name]["time_result"][
-                    "End Time"
-                ] = _parse_timestamp(test_info.test_result.stop_time)
-                ALL_STEP_REPORT[class_name]["time_result"]["Elapsed Time"] = round(
-                    test_info.elapsed_time, 2
-                )
+        # Update test_case
+        if class_name in ALL_STEP_REPORT:
+            ALL_STEP_REPORT[class_name]["time_result"][
+                "Start Time"
+            ] = _parse_timestamp(test_info.test_result.start_time)
+            ALL_STEP_REPORT[class_name]["time_result"][
+                "End Time"
+            ] = _parse_timestamp(test_info.test_result.stop_time)
+            ALL_STEP_REPORT[class_name]["time_result"]["Elapsed Time"] = round(
+                test_info.elapsed_time, 2
+            )
 
     # Render the source template
     render_environment = jinja2.Environment(loader=jinja2.FileSystemLoader(SCRIPT_PATH))
