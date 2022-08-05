@@ -1,7 +1,7 @@
 Step report
 ===========
 
-The step report aims to track each assertion.
+The step report aims to provide a more comprehensive test-report (adapted for system testers) by tracking each assertion that contains a message.
 It follows the following structure:
 
 - test name
@@ -32,7 +32,7 @@ Usage Examples
         # assert fail but continue on error
         # test is set to failed if assertion does not succeed
         self.step_report_continue_on_error = True
-        self.assertTrue(not device_on, msg="Some check")
+        self.assertFalse(device_on, msg="Some check")
 
         # assert with custom message
         # assert msg overwritten when step_report_message not null
