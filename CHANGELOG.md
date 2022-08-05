@@ -129,9 +129,6 @@ Bugfix:
 Changes:
 - refactor test_case, test_suite, test_message_handler module
 
-Features:
-- add step-report
-
 ### Version 0.14.0
 
 Features:
