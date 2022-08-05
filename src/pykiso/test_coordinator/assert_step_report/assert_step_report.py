@@ -27,7 +27,6 @@ Create a Step report
 import functools
 import inspect
 import logging
-import os
 import re
 import types
 from collections import OrderedDict, namedtuple
@@ -53,7 +52,8 @@ REPORT_KEYS = ["message", "var_name", "expected_result", "actual_result", "succe
 _FUNCTION_TO_APPLY = r"|".join(["test", "run", "setup", "teardown"])
 
 # Jinja template location
-SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_PATH = str(Path(__file__).resolve().parent)
+
 REPORT_TEMPLATE = "report_template.html.j2"
 
 
