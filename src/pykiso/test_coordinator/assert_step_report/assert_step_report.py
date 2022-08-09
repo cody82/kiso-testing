@@ -29,15 +29,14 @@ import inspect
 import logging
 import re
 import types
+import typing
 from collections import OrderedDict, namedtuple
 from datetime import date, datetime
 from pathlib import Path
 from typing import Union
 
 import jinja2
-import typing
-
-from pykiso.test_coordinator.test_result import BannerTestResult
+from pykiso.test_coordinator.test_result import BannerTestResult, TestCase
 from pykiso.test_coordinator.test_xml_result import TestInfo, XmlTestResult
 
 log = logging.getLogger(__name__)
@@ -285,7 +284,6 @@ def assert_decorator(func):
                     test_class_name, test_name, message, var_name, expected, received
                 )
 
-
         except Exception as e:
             log.error(f"Unable to update Step due to exception: {e}")
 
@@ -300,12 +298,13 @@ def assert_decorator(func):
             log.error(f"Assert step exception: {e}")
             test_class.step_report_last_error_message = f"{e}"
             if parent_method:
-                ALL_STEP_REPORT[test_class_name]["test_list"][test_name][-1]["succeed"] = False
+                ALL_STEP_REPORT[test_class_name]["test_list"][test_name][-1][
+                    "succeed"
+                ] = False
                 ALL_STEP_REPORT[test_class_name]["succeed"] = False
-            test_class.step_report_succeed=False
+            test_class.step_report_succeed = False
             if not test_class.step_report_continue_on_error:
                 raise e
-
 
     return func_wrapper
 
@@ -333,40 +332,40 @@ def generate_step_report(
     """
     global ALL_STEP_REPORT, SCRIPT_PATH, REPORT_TEMPLATE
 
-    if isinstance(test_result, XmlTestResult):
-        # separate successes and fails
-        succeeded_tests = test_result.successes + test_result.expectedFailures
-        failed_test = (
-            test_result.failures + test_result.errors + test_result.unexpectedSuccesses
-        )
-    else:
-        # Banner test, TestInfo missing
-        succeeded_tests = []
-        failed_test = []
+    succeeded_tests = test_result.successes + test_result.expectedFailures
+    failed_test = (
+        test_result.failures + test_result.errors + test_result.unexpectedSuccesses
+    )
 
     # Update info for each test
-    for test_case in (succeeded_tests + failed_test):
-        if isinstance(test_case, TestInfo):
+    for test_case in succeeded_tests + failed_test:
+        if isinstance(test_case, (TestCase, TestInfo)):
             # Case of success
             test_info = test_case
-        elif isinstance(test_case, tuple) and isinstance(test_case[0], TestInfo):
+        elif isinstance(test_case, tuple) and isinstance(
+            test_case[0], (TestCase, TestInfo)
+        ):
             # Case of non success
             test_info = test_case[0]
+
+        if isinstance(test_info, TestCase):
+            class_name = test_info.__class__.__name__
+            start_time = _parse_timestamp(test_info.start_time)
+            stop_time = _parse_timestamp(test_info.stop_time)
         else:
-            log.debug("Junit need to be activated for time information")
-            continue
-        class_name = test_info.test_name.split(".")[-1]
+            # test_info is TestInfo
+            class_name = test_info.test_name.split(".")[-1]
+            start_time = _parse_timestamp(test_info.test_result.start_time)
+            stop_time = _parse_timestamp(test_info.test_result.stop_time)
+
+        elapsed_time = test_info.elapsed_time
 
         # Update test_case
         if class_name in ALL_STEP_REPORT:
-            ALL_STEP_REPORT[class_name]["time_result"][
-                "Start Time"
-            ] = _parse_timestamp(test_info.test_result.start_time)
-            ALL_STEP_REPORT[class_name]["time_result"][
-                "End Time"
-            ] = _parse_timestamp(test_info.test_result.stop_time)
+            ALL_STEP_REPORT[class_name]["time_result"]["Start Time"] = start_time
+            ALL_STEP_REPORT[class_name]["time_result"]["End Time"] = stop_time
             ALL_STEP_REPORT[class_name]["time_result"]["Elapsed Time"] = round(
-                test_info.elapsed_time, 2
+                elapsed_time, 2
             )
 
     # Render the source template
