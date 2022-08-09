@@ -21,6 +21,7 @@ TestCase for Message Protocol / TestApp usage.
 .. note:: TODO later on will inherit from a metaclass to get the id parameters
 """
 
+from dataclasses import dataclass, field
 import functools
 import logging
 import unittest
@@ -109,7 +110,6 @@ def retry_test_case(
 
     return decorator
 
-
 class BasicTest(unittest.TestCase):
     """Base for test-cases."""
 
@@ -156,21 +156,6 @@ class BasicTest(unittest.TestCase):
             log.warning(
                 "BasicTest does not support test timeouts, it will be discarded"
             )
-
-        # Store additional data fetched during test for
-        # the step-report (even if not activated)
-        self.step_report_header = {}
-        # Message for step in report
-        self.step_report_message = ""
-        # Test succeed flag
-        # Set to false if one or more steps fail
-        self.step_report_succeed = True
-        # Error message on step fail
-        self.step_report_last_error_message = ""
-        # Flag used for stopping interruptions on first fail for reporting
-        self.step_report_continue_on_error = False
-        # Current report table
-        self.step_report_current_table = None
 
     def cleanup_and_skip(self, aux: AuxiliaryInterface, info_to_print: str) -> None:
         """Cleanup auxiliary and log reasons.

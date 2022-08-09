@@ -38,7 +38,7 @@ import pykiso
 
 from ..exceptions import AuxiliaryCreationError, TestCollectionError
 from . import test_suite
-from .assert_step_report import assert_decorator, generate_step_report
+from .assert_step_report import assert_decorator, generate_step_report, StepReportData
 from .test_result import BannerTestResult
 from .test_xml_result import XmlTestResult
 
@@ -181,7 +181,7 @@ def enable_step_report(all_tests_to_run: unittest.suite.TestSuite) -> None:
     base_suite = test_suite.flatten(all_tests_to_run)
     for tc in base_suite:
         # for any test, show ITF version
-        tc.step_report_header = OrderedDict({"ITF version": pykiso.__version__})
+        tc.step_report = StepReportData(header = OrderedDict({"ITF version": pykiso.__version__}))
 
         # Decorate All assert method
         assert_method_list = [
@@ -192,7 +192,6 @@ def enable_step_report(all_tests_to_run: unittest.suite.TestSuite) -> None:
             method = getattr(tc, method_name)
             # Add decorator to the existing method
             setattr(tc, method_name, assert_decorator(method))
-        tc.generate_step_report = generate_step_report
 
 def collect_test_suites(
     config_test_suite_list: List[Dict[str, Union[str, int]]],

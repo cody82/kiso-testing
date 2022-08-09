@@ -31,18 +31,18 @@ Usage Examples
 
         # assert fail but continue on error
         # test is set to failed if assertion does not succeed
-        self.step_report_continue_on_error = True
+        self.step_report.continue_on_error = True
         self.assertFalse(device_on, msg="Some check")
 
         # assert with custom message
         # assert msg overwritten when step_report_message not null
-        self.step_report_message = "Custom message"
+        self.step_report.message = "Custom message"
         self.assertAlmostEqual(voltage, 4, delta=1, msg="Check voltage device")
 
         # additional data to include in the step-report
-        self.step_report_header["Version_device"] = "2022-1234"
+        self.step_report.header["Version_device"] = "2022-1234"
 
-"self.step_report_header" allows you to store data data during test
+"self.step_report.header" allows you to store data data during test
 
 
 How to generate

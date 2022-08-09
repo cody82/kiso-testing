@@ -30,6 +30,7 @@ import logging
 import re
 import types
 import typing
+from dataclasses import dataclass, field
 from collections import OrderedDict, namedtuple
 from datetime import date, datetime
 from pathlib import Path
@@ -55,6 +56,22 @@ SCRIPT_PATH = str(Path(__file__).resolve().parent)
 
 REPORT_TEMPLATE = "report_template.html.j2"
 
+@dataclass
+class StepReportData:
+    # Store additional data fetched during test for
+    # the step-report (even if not activated)
+    header: dict = field(default_factory=dict)
+    # Message for step in report
+    message: str = ""
+    # Test succeed flag
+    # Set to false if one or more steps fail
+    success: bool = True
+    # Error message on step fail
+    last_error_message: str = ""
+    # Flag used for stopping interruptions on first fail for reporting
+    continue_on_error: bool = False # or use the failfast value?
+    # Current report table
+    current_table: typing.Optional[str] = None
 
 def _get_variable_name(f_back: types.FrameType, assert_name: str) -> str:
     """Get the input parameter name to the assert method.
@@ -163,7 +180,7 @@ def _prepare_report(test_class, test_name: str) -> None:
         # Add test succeed flag
         ALL_STEP_REPORT[test_class_name]["succeed"] = True
         # Add header (mutable object -> dictionary fed during test)
-        ALL_STEP_REPORT[test_class_name]["header"] = test_class.step_report_header
+        ALL_STEP_REPORT[test_class_name]["header"] = test_class.step_report.header
         # Add description of the test -> Always test_run
         ALL_STEP_REPORT[test_class_name]["description"] = (
             test_class._testMethodDoc or "Not provided"
@@ -220,7 +237,7 @@ def assert_decorator(func):
         MyTest(pykiso.BasicTest):
             def test_run(self):
                 '''Here is my test description'''
-                self.step_report_header["Voltage"] = 5
+                self.step_report.header["Voltage"] = 5
 
     :param func: function to decorate (expected assert method)
 
@@ -250,14 +267,14 @@ def assert_decorator(func):
                 # Assign variables to signature
                 signature = inspect.signature(func)
                 arguments = signature.bind(*args, **kwargs).arguments
-                test_name = test_class.step_report_current_table or test_name
+                test_name = test_class.step_report.current_table or test_name
 
                 # 1. Gather message, var_name, expected, received
                 # 1.1 Get message. default value: ""
 
-                if test_class.step_report_message:
-                    message = test_class.step_report_message
-                    test_class.step_report_message = ""
+                if test_class.step_report.message:
+                    message = test_class.step_report.message
+                    test_class.step_report.message = ""
                 else:
                     message = arguments.get("msg", "")
 
@@ -291,19 +308,19 @@ def assert_decorator(func):
         # When exception is thrown set test as failed and handle
         # the test assertion exception so that report doesn`t interrupt
         try:
-            # if not test_class.step_report_continue_on_error and not test_class.step_report_succeed:
-            #     raise Exception(test_class.step_report_last_error_message)
+            # if not test_class.step_report.continue_on_error and not test_class.step_report.success:
+            #     raise Exception(test_class.step_report.last_error_message)
             return func(*args, **kwargs)
         except Exception as e:
             log.error(f"Assert step exception: {e}")
-            test_class.step_report_last_error_message = f"{e}"
+            test_class.step_report.last_error_message = f"{e}"
             if parent_method:
                 ALL_STEP_REPORT[test_class_name]["test_list"][test_name][-1][
                     "succeed"
                 ] = False
                 ALL_STEP_REPORT[test_class_name]["succeed"] = False
-            test_class.step_report_succeed = False
-            if not test_class.step_report_continue_on_error:
+            test_class.step_report.success = False
+            if not test_class.step_report.continue_on_error:
                 raise e
 
     return func_wrapper

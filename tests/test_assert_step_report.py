@@ -14,11 +14,13 @@ def test_case():
     tc.assertAlmostEqual = assert_step_report.assert_decorator(tc.assertAlmostEqual)
 
     # Add the step-report parameters
-    tc.step_report_header = {}
-    tc.step_report_message = ""
-    tc.step_report_succeed = True
-    tc.step_report_continue_on_error = False
-    tc.step_report_current_table = None
+    tc.step_report = assert_step_report.StepReportData(
+        header = {},
+        message = "",
+        success = True,
+        continue_on_error = False,
+        current_table = None
+    )
 
     return tc
 
