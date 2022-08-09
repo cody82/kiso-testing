@@ -21,7 +21,6 @@ TestCase for Message Protocol / TestApp usage.
 .. note:: TODO later on will inherit from a metaclass to get the id parameters
 """
 
-from dataclasses import dataclass, field
 import functools
 import logging
 import unittest
@@ -109,6 +108,7 @@ def retry_test_case(
         return func_wrapper
 
     return decorator
+
 
 class BasicTest(unittest.TestCase):
     """Base for test-cases."""
