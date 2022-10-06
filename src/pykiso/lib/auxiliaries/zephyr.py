@@ -8,11 +8,18 @@
 ##########################################################################
 import enum
 import logging
+import queue
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
-from pykiso import SimpleAuxiliaryInterface
+
+from pykiso import CChannel, SimpleAuxiliaryInterface
+from pykiso.interfaces.dt_auxiliary import (
+    DTAuxiliaryInterface,
+    close_connector,
+    open_connector,
+)
 from pykiso.types import MsgType
 
 log = logging.getLogger(__name__)
@@ -78,11 +85,11 @@ class Twister:
             # Read twister output until test case was started
             while True:
                 line = self._readline()
-                if line == None:
+                if line is None:
                     return
 
                 if "OUTPUT: START - " in line:
-                    log.info(f"Zephyr test started.")
+                    log.info("Zephyr test started.")
                     return
 
     def _readline(self) -> Optional[str]:
@@ -119,13 +126,13 @@ class Twister:
             log.info(f"Zephyr test failed: {failure.text}")
             result = TestResult.FAILED
         elif skipped is not None:
-            log.info(f"Zephyr test was skipped.")
+            log.info("Zephyr test was skipped.")
             result = TestResult.SKIPPED
         elif error is not None:
             log.error(f"Zephyr test failed with error: {error.text}")
             result = TestResult.ERROR
         else:
-            log.info(f"Zephyr test PASSED.")
+            log.info("Zephyr test PASSED.")
             result = TestResult.PASSED
         return result
 
@@ -145,12 +152,12 @@ class Twister:
 
             # Look for relevant messages in the output
             if "OUTPUT:  PASS - " in line:
-                log.debug(f"Zephyr test PASSED.")
+                log.debug("Zephyr test PASSED.")
             elif "OUTPUT:  FAIL - " in line:
-                log.debug(f"Zephyr test FAILED.")
+                log.debug("Zephyr test FAILED.")
 
         # Wait for the twister process to exit
-        ret = self.process.wait()
+        self.process.wait()
 
         # Get the result from the xunit file
         result = self._parse_xunit(str(Path(self.outdir) / "twister_report.xml"))
@@ -168,6 +175,7 @@ class ZephyrTestAuxiliary(SimpleAuxiliaryInterface):
 
     def __init__(
         self,
+        com: CChannel = None,
         twister_path: str = "twister",
         test_directory: Optional[str] = None,
         test_name: Optional[str] = None,
@@ -215,3 +223,210 @@ class ZephyrTestAuxiliary(SimpleAuxiliaryInterface):
 
     def _delete_auxiliary_instance(self) -> bool:
         return True
+
+
+class NewZephyrTestAuxiliary(DTAuxiliaryInterface):
+    """Auxiliary used to send raw bytes via a connector instead of pykiso.Messages."""
+
+    def __init__(
+        self,
+        com: CChannel,
+        twister_path: str = "twister",
+        test_directory: Optional[str] = None,
+        test_name: Optional[str] = None,
+        wait_for_start: bool = True,
+        **kwargs: dict,
+    ) -> None:
+        """Initialize the auxiliary
+
+        :param com: CChannel for twister communication
+        :param twister_path: Path to the twister tool
+        :param test_directory: The directory to search for the Zephyr test project
+        :param testcase_name: The name of the Zephyr test
+        :param wait_for_start: Wait for Zyephyr test start
+
+        """
+        self.twister_path = twister_path
+        self.test_directory = test_directory
+        self.test_name = test_name
+        self.wait_for_start = wait_for_start
+        self.twister = Twister(twister_path)
+        self.channel = com
+        super().__init__(
+            is_proxy_capable=True, tx_task_on=True, rx_task_on=True, **kwargs
+        )
+
+    def start_test(
+        self, test_directory: Optional[str] = None, test_name: Optional[str] = None
+    ) -> None:
+        """Start the Zephyr test
+
+        :param test_directory: The directory to search for the Zephyr test project. Defaults to the test_directory from YAML.
+        :param testcase_name: The name of the Zephyr test. Defaults to the testcase_name from YAML.
+        """
+        test_directory = (
+            test_directory if test_directory is not None else self.test_directory
+        )
+        test_name = test_name if test_name is not None else self.test_name
+        if test_directory is None:
+            raise ZephyrError("test_directory parameter is not set.")
+        if test_name is None:
+            raise ZephyrError("test_name parameter is not set.")
+        self.twister.start_test(test_directory, test_name, self.wait_for_start)
+
+    def wait_test(self) -> TestResult:
+        return self.twister.wait_test()
+
+    @open_connector
+    def _create_auxiliary_instance(self) -> bool:
+        """Open the connector communication.
+
+        :return: True if the channel is correctly opened otherwise False
+        """
+        log.internal_info("Auxiliary instance created")
+        return True
+
+    @close_connector
+    def _delete_auxiliary_instance(self) -> bool:
+        """Close the connector communication.
+
+        :return: always True
+        """
+        log.internal_info("Auxiliary instance deleted")
+        return True
+
+    def send_message(self, raw_msg: bytes) -> bool:
+        """Send a raw message (bytes) via the communication channel.
+
+        :param raw_msg: message to send
+
+        :return: True if command was executed otherwise False
+        """
+        return self.run_command("send", raw_msg)
+
+    def run_command(
+        self,
+        cmd_message,
+        cmd_data=None,
+        blocking: bool = True,
+        timeout_in_s: int = None,
+    ) -> bool:
+        """Send a request by transmitting it through queue_in and
+        populate queue_tx with the command verdict (successful or not).
+
+        :param cmd_message: command to send
+        :param cmd_data: data you would like to populate the command
+            with
+        :param blocking: If you want the command request to be
+            blocking or not
+        :param timeout_in_s: Number of time (in s) you want to wait
+            for an answer
+
+        :return: True if the request is correctly executed otherwise
+            False
+        """
+        with self.lock:
+            log.internal_debug(
+                f"sending command '{cmd_message}' with payload {cmd_data} using {self.name} aux."
+            )
+            state = None
+            self.queue_in.put((cmd_message, cmd_data))
+            try:
+                state = self.queue_tx.get(blocking, timeout_in_s)
+                log.internal_debug(
+                    f"command '{cmd_message}' successfully sent for {self.name} aux"
+                )
+            except queue.Empty:
+                log.error(
+                    f"no feedback received regarding request {cmd_message} for {self.name} aux."
+                )
+        return state
+
+    def receive_message(
+        self,
+        blocking: bool = True,
+        timeout_in_s: float = None,
+    ) -> Optional[bytes]:
+        """Receive a raw message.
+
+        :param blocking: wait for message till timeout elapses?
+        :param timeout_in_s: maximum time in second to wait for a response
+
+        :returns: raw message
+        """
+
+        # Evaluate if we are in the context manager or not
+        in_ctx_manager = False
+        if self.queueing_event.is_set():
+            in_ctx_manager = True
+
+        log.internal_debug(
+            f"retrieving message in {self} (blocking={blocking}, timeout={timeout_in_s})"
+        )
+        # In case we are not in the context manager, we have a enable the receiver thread (and afterwards disable it)
+        if not in_ctx_manager:
+            self.queueing_event.set()
+        response = self.wait_for_queue_out(blocking=blocking, timeout_in_s=timeout_in_s)
+        if not in_ctx_manager:
+            self.queueing_event.clear()
+
+        log.internal_debug(f"retrieved message '{response}' in {self}")
+
+        # if queue.Empty exception is raised None is returned so just
+        # directly return it
+        if response is None:
+            return None
+
+        msg = response.get("msg")
+        remote_id = response.get("remote_id")
+
+        # stay with the old return type to not making a breaking change
+        if remote_id is not None:
+            return (msg, remote_id)
+        return msg
+
+    def clear_buffer(self) -> None:
+        """Clear buffer from old stacked objects"""
+        log.internal_info("Clearing buffer. Previous responses will be deleted.")
+        with self.queue_out.mutex:
+            self.queue_out.queue.clear()
+
+    def _run_command(self, cmd_message: str, cmd_data: bytes = None) -> bool:
+        """Run the corresponding command.
+
+        :param cmd_message: command type
+        :param cmd_data: payload data to send over CChannel
+
+        :return: True if command is executed otherwise False
+        """
+        state = False
+        if cmd_message == "send":
+            try:
+                self.channel.cc_send(msg=cmd_data, raw=True)
+                state = True
+            except Exception:
+                log.exception(
+                    f"encountered error while sending message '{cmd_data}' to {self.channel}"
+                )
+        else:
+            log.internal_warning(f"received unknown command '{cmd_message} in {self}'")
+
+        self.queue_tx.put(state)
+
+    def _receive_message(self, timeout_in_s: float) -> None:
+        """Get a message from the associated channel. And put the message in
+        the queue, if threading event is set.
+
+        :param timeout_in_s: maximum amount of time (seconds) to wait
+            for a message
+        """
+        try:
+            rcv_data = self.channel.cc_receive(timeout=timeout_in_s, raw=True)
+            log.internal_debug(f"received message '{rcv_data}' from {self.channel}")
+            msg = rcv_data.get("msg")
+            if msg is not None and self.queueing_event.is_set():
+                self.queue_out.put(rcv_data)
+        except Exception:
+            log.exception(
+                f"encountered error while receiving message via {self.channel}"
+            )
