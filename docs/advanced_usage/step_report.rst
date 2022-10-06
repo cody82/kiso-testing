@@ -1,3 +1,5 @@
+.. _step_test:
+
 System-test (step) report
 =========================
 
@@ -51,3 +53,7 @@ How to generate
 .. code:: bash
 
   pykiso -c my_config.yaml --step-report my_report.html
+
+Limitations
+~~~~~~~~~~~
+The step report generator might fail if you put parentheses or "assert" strings in strings or comments in the assert statement.

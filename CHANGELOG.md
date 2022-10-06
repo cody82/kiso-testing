@@ -8,11 +8,38 @@ Commits have to follow following convention: https://www.conventionalcommits.org
 
 ### Bug Fixes
 
+- Handle case odx_file_path parameter is type of bool ([#158](https://github.com/orhun/git-cliff/issues/158))
+- Step report problem with inspect module in python>=3.8 ([#160](https://github.com/orhun/git-cliff/issues/160))
+
+### Miscellaneous Tasks
+
+- Release 0.19.3 ([#161](https://github.com/orhun/git-cliff/issues/161))
+
+### New Features
+
+- Write stderr to file when file logging is activated ([#159](https://github.com/orhun/git-cliff/issues/159))
+
+## Version 0.19.2 (2022-09-13)
+
+### Bug Fixes
+
 - Changelog only triggered on master
+- Cleanup auxiliary properly by removing them from sys.modules ([#147](https://github.com/orhun/git-cliff/issues/147))
+- Fix double Logging with --junit option
+- Update logging initializer so that internal logs are always logged in file
 
 ### Miscellaneous Tasks
 
 - Add jinja2 for step reporter dependency
+- [**breaking**] Release 0.19.2
+
+### New Features
+
+- Select test case with regex ([#146](https://github.com/orhun/git-cliff/issues/146))
+
+### Refactorings
+
+- Small fixes
 
 ## Version 0.19.1 (2022-09-02)
 

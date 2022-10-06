@@ -280,9 +280,19 @@ class AuxiliaryCache(ModuleCache):
 
     def _stop_auxiliaries(self):
         """Elegant workaround to shut down all the auxiliaries."""
-        for aux in self.instances.values():
+        for alias, aux in self.instances.items():
             log.internal_debug(f"issuing stop for auxiliary '{aux}'")
             aux.stop()
+            aux_mod = f"{AuxLinkLoader._COMMON_PREFIX}.{alias}"
+            # ensure that the module was created
+            if sys.modules.get(aux_mod) is not None:
+                # remove all modules create by our custom loader
+                sys.modules.pop(aux_mod)
+
+        # remove the common prefix "pykiso.auxiliaries" to enforce the
+        # path finder -> loader -> module
+        if AuxLinkLoader._COMMON_PREFIX in sys.modules:
+            sys.modules.pop(AuxLinkLoader._COMMON_PREFIX)
 
 
 class DynamicImportLinker:
