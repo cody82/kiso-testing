@@ -7,150 +7,129 @@
 # SPDX-License-Identifier: EPL-2.0
 ##########################################################################
 
-import sys
-import pytest
 import pathlib
 import subprocess
+import sys
 import threading
 import time
-from pykiso import message
-from pykiso.lib.auxiliaries.zephyr import ZephyrTestAuxiliary, ZephyrError, Twister
 from unittest import mock
-import xml.etree.ElementTree as ET
 
+import pytest
 
-# @pytest.fixture
-# def zephyr_aux():
-#    return ZephyrTestAuxiliary()
-
-
-@pytest.mark.parametrize(
-    "twister_path, test_directory, test_directory_start, testname, testname_start, wait",
-    [
-        ("twister", "b", None, "testname1", "testname2", False),
-        ("twister2", None, "b", "testname1", None, False),
-        (None, None, "b", "testname1", None, False),
-        ("twister2", "b", None, None, None, False),
-        ("twister2", None, None, "testname1", "testname2", False),
-    ],
-)
-def test_zephyr_aux(
-    mocker,
-    twister_path,
-    test_directory,
-    test_directory_start,
-    testname,
-    testname_start,
-    wait,
-):
-    global mock_readline_counter
-    mock_readline_counter = 0
-
-    twister_instance = mock.MagicMock(Twister)
-    twister_mock = mocker.patch(
-        "pykiso.lib.auxiliaries.zephyr.Twister", return_value=twister_instance
-    )
-
-    zephyr_aux = ZephyrTestAuxiliary(twister_path, test_directory, testname, wait)
-    twister_mock.assert_called_once_with(twister_path)
-
-    if (test_directory is None and test_directory_start is None) or (
-        testname is None and testname_start is None
-    ):
-        with pytest.raises(ZephyrError) as e:
-            zephyr_aux.start_test(test_directory_start, testname_start)
-    else:
-        zephyr_aux.start_test(test_directory_start, testname_start)
-        twister_instance.start_test.assert_called_once_with(
-            test_directory_start
-            if test_directory_start is not None
-            else test_directory,
-            testname_start if testname_start is not None else testname,
-            wait,
-        )
-
-    zephyr_aux.wait_test()
-    twister_instance.wait_test.assert_called_once()
-
-
-def test_zephyr_aux_misc(mocker):
-    zephyr_aux = ZephyrTestAuxiliary()
-    zephyr_aux._create_auxiliary_instance()
-    zephyr_aux._delete_auxiliary_instance()
-
-
-mock_readline_counter = 0
-
-
-def mock_readline():
-    global mock_readline_counter
-    if mock_readline_counter > 2:
-        return ""
-    ret = [
-        b"2022-07-15 08:26:34,750 [DEBUG] zephyr:105: Twister: DEBUG   - OUTPUT:",
-        b"2022-07-15 08:26:34,750 [DEBUG] zephyr:105: Twister: DEBUG   - OUTPUT: START - test_assert",
-        b"2022-07-15 08:26:34,750 [DEBUG] zephyr:105: Twister: DEBUG   - OUTPUT:  PASS - test_assert in 0.0 seconds",
-    ][mock_readline_counter]
-    mock_readline_counter = mock_readline_counter + 1
-    return ret
+from pykiso import message
+from pykiso.lib.auxiliaries.zephyr import ZephyrError, ZephyrTestAuxiliary
 
 
 @pytest.mark.parametrize(
-    "twister_path, test_directory, testname, wait",
+    "cc_receive",
     [
-        ("twister", "b", "testname1", False),
-        ("twister", "b", "testname1", True),
+        (
+            {
+                "msg": {
+                    "stderr": "DEBUG   - OUTPUT:  PASS - test_assert in 0.000 seconds\n"
+                }
+            }
+        ),
+        (
+            {
+                "msg": {
+                    "stderr": "DEBUG   - OUTPUT:  FAIL - test_assert in 0.000 seconds\n"
+                }
+            }
+        ),
     ],
 )
-def test_twister(
-    mocker,
-    twister_path,
-    test_directory,
-    testname,
-    wait,
-):
-    global mock_readline_counter
-    mock_readline_counter = 0
-    mock_path = mock.MagicMock()
-    mocker.patch.object(pathlib.Path, "resolve", return_value=mock_path)
+def test_zephyr_aux_new(mocker, cc_receive):
 
-    mock_process = mock.MagicMock()
-    mocker.patch("subprocess.Popen", return_value=mock_process)
-
-    mock_et = mock.MagicMock()
-    mocker.patch.object(ET, "parse", return_value=mock_et)
-
-    twister = Twister(twister_path)
-
-    mock_process.stderr.readline = mock_readline
-    twister.start_test(test_directory, testname, wait)
-
-    result = twister.wait_test()
+    et_mock = mocker.patch("xml.etree.ElementTree.parse")
+    connector = mock.MagicMock()
+    connector.cc_receive.side_effect = [
+        {"msg": {"stderr": "INFO    - Building initial testsuite list...\n"}},
+        {"msg": {"stderr": "DEBUG   - OUTPUT: \n"}},
+        {"msg": {"stderr": "DEBUG   - OUTPUT: START - test_assert\n"}},
+        cc_receive,
+        {"msg": {"exit": 0}},
+        {"msg": {"msg": None}},
+    ]
+    aux = ZephyrTestAuxiliary(connector, "test_dir", "test_name", True)
+    assert aux._create_auxiliary_instance()
+    aux.start_test()
+    aux.wait_test()
+    assert aux._delete_auxiliary_instance()
 
 
-def test_twister_aux_wait_exception(mocker):
-    global mock_readline_counter
-    mock_readline_counter = 0
-    twister = Twister()
+def test_zephyr_aux_start_test_exceptions(mocker):
+    aux = ZephyrTestAuxiliary()
     with pytest.raises(ZephyrError) as e:
-        twister.wait_test()
-
-
-def test_twister_start_exception(mocker):
-    global mock_readline_counter
-    mock_readline_counter = 0
-    twister = Twister()
-    twister.process = 1
+        aux.start_test()
     with pytest.raises(ZephyrError) as e:
-        twister.start_test("dir", "name")
+        aux.start_test("test_directory")
+    with pytest.raises(ZephyrError) as e:
+        aux.running = True
+        aux.start_test("test_directory", "test_name")
+        aux.running = False
 
 
-def test_twister_parse_xunit(mocker):
-    mock_et = mock.MagicMock()
-    mocker.patch.object(ET, "parse", return_value=mock_et)
-    twister = Twister()
+def test_zephyr_aux_wait_test_exceptions(mocker):
+    aux = ZephyrTestAuxiliary()
+    with pytest.raises(ZephyrError) as e:
+        aux.wait_test()
 
-    mocker.patch.object(mock_et, "get_root", return_value=mock_et)
-    mocker.patch.object(mock_et, "find", return_value=mock_et)
 
-    twister._parse_xunit("file")
+def test_zephyr_junit(mocker):
+    xml1 = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <!--Name of the root tag does not matter, but it must not be same as the ones below -->
+    <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
+    <testsuite>
+        <testcase name="someMethod" classname="SomeClass" time="0.285">
+        </testcase>
+    </testsuite>
+</testsuites>
+"""
+    xml2 = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <!--Name of the root tag does not matter, but it must not be same as the ones below -->
+    <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
+    <testsuite>
+        <testcase name="someMethod" classname="SomeClass" time="0.285">
+                    <failure message="failure message" type="package.Exception">
+                <!-- message and type are not required, all text content is added to the created defect -->
+                Failure details
+            </failure>
+        </testcase>
+    </testsuite>
+</testsuites>
+"""
+    xml3 = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <!--Name of the root tag does not matter, but it must not be same as the ones below -->
+    <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
+    <testsuite>
+        <testcase name="someMethod" classname="SomeClass" time="0.285">
+        <error message="error message" type="package.OtherException">
+                Error Details
+            </error>
+        </testcase>
+    </testsuite>
+</testsuites>
+"""
+    xml4 = """<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <!--Name of the root tag does not matter, but it must not be same as the ones below -->
+    <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
+    <testsuite>
+        <testcase name="someMethod" classname="SomeClass" time="0.285">
+        <skipped message="error message" type="package.OtherException">
+                Error Details
+            </skipped>
+        </testcase>
+    </testsuite>
+</testsuites>
+"""
+    for xml in [xml1, xml2, xml3, xml4]:
+        aux = ZephyrTestAuxiliary()
+        with open("tmp_junit.xml", "w") as f:
+            f.write(xml)
+        aux._parse_xunit("tmp_junit.xml")
+        # remove("tmp_junit.xml")
