@@ -7,6 +7,7 @@
 # SPDX-License-Identifier: EPL-2.0
 ##########################################################################
 
+import os
 import pathlib
 import subprocess
 import sys
@@ -17,7 +18,11 @@ from unittest import mock
 import pytest
 
 from pykiso import message
-from pykiso.lib.auxiliaries.zephyr import ZephyrError, ZephyrTestAuxiliary
+from pykiso.lib.auxiliaries.zephyr import (
+    TestResult,
+    ZephyrError,
+    ZephyrTestAuxiliary,
+)
 
 
 @pytest.mark.parametrize(
@@ -39,8 +44,8 @@ from pykiso.lib.auxiliaries.zephyr import ZephyrError, ZephyrTestAuxiliary
         ),
     ],
 )
-def test_zephyr_aux_new(mocker, cc_receive):
-
+def test_zephyr_aux(mocker, cc_receive):
+    """Test a general Zephyr run for test fail and success"""
     et_mock = mocker.patch("xml.etree.ElementTree.parse")
     connector = mock.MagicMock()
     connector.cc_receive.side_effect = [
@@ -59,6 +64,7 @@ def test_zephyr_aux_new(mocker, cc_receive):
 
 
 def test_zephyr_aux_start_test_exceptions(mocker):
+    """Test exceptions in start_test"""
     aux = ZephyrTestAuxiliary()
     with pytest.raises(ZephyrError) as e:
         aux.start_test()
@@ -71,13 +77,17 @@ def test_zephyr_aux_start_test_exceptions(mocker):
 
 
 def test_zephyr_aux_wait_test_exceptions(mocker):
+    """Test exceptions in wait_test"""
     aux = ZephyrTestAuxiliary()
     with pytest.raises(ZephyrError) as e:
         aux.wait_test()
 
 
-def test_zephyr_junit(mocker):
-    xml1 = """<?xml version="1.0" encoding="UTF-8"?>
+@pytest.mark.parametrize(
+    "xunit, result",
+    [
+        (
+            """<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
     <!--Name of the root tag does not matter, but it must not be same as the ones below -->
     <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
@@ -86,8 +96,11 @@ def test_zephyr_junit(mocker):
         </testcase>
     </testsuite>
 </testsuites>
-"""
-    xml2 = """<?xml version="1.0" encoding="UTF-8"?>
+""",
+            TestResult.PASSED,
+        ),
+        (
+            """<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
     <!--Name of the root tag does not matter, but it must not be same as the ones below -->
     <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
@@ -100,8 +113,11 @@ def test_zephyr_junit(mocker):
         </testcase>
     </testsuite>
 </testsuites>
-"""
-    xml3 = """<?xml version="1.0" encoding="UTF-8"?>
+""",
+            TestResult.FAILED,
+        ),
+        (
+            """<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
     <!--Name of the root tag does not matter, but it must not be same as the ones below -->
     <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
@@ -113,8 +129,11 @@ def test_zephyr_junit(mocker):
         </testcase>
     </testsuite>
 </testsuites>
-"""
-    xml4 = """<?xml version="1.0" encoding="UTF-8"?>
+""",
+            TestResult.ERROR,
+        ),
+        (
+            """<?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
     <!--Name of the root tag does not matter, but it must not be same as the ones below -->
     <!-- testsuite tags can be nested, timestamp is not required and format is "yyyy-MM-dd'T'HH:mm:ssZ" -->
@@ -126,10 +145,15 @@ def test_zephyr_junit(mocker):
         </testcase>
     </testsuite>
 </testsuites>
-"""
-    for xml in [xml1, xml2, xml3, xml4]:
-        aux = ZephyrTestAuxiliary()
-        with open("tmp_junit.xml", "w") as f:
-            f.write(xml)
-        aux._parse_xunit("tmp_junit.xml")
-        # remove("tmp_junit.xml")
+""",
+            TestResult.SKIPPED,
+        ),
+    ],
+)
+def test_zephyr_junit(mocker, xunit: str, result: TestResult):
+    aux = ZephyrTestAuxiliary()
+    with open("tmp_junit.xml", "w") as f:
+        f.write(xunit)
+    res = aux._parse_xunit("tmp_junit.xml")
+    os.remove("tmp_junit.xml")
+    assert res == result
